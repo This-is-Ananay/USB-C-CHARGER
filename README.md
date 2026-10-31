@@ -1,25 +1,14 @@
 # USB-C-CHARGER
-A portable USB-C charger(power bank) designed in Altium Designer. It has two USB-C ports: one to charge the internal 3.7 V Li-Po cell (MCP73831) and one to charge your phone or other devices from the cell (PAM2401 boost converter, 5 V / 1 A).
-
-## Table of Contents
-1. [Overview](#overview)
-2. [How It Works](#how-it-works)
-3. [Specifications](#specifications)
-4. [Schematics](#schematics)
-5. [Design Calculations](#design-calculations)
-6. [Bill of Materials](#bill-of-materials)
-7. [Custom Footprints and Symbols](#custom-footprints-and-symbols)
-8. [Known Issues and Design Notes](#known-issues-and-design-notes)
+A portable USB-C charger(power bank) designed in Altium Designer. It has two USB-C ports: one to charge the internal 3.7 V Li-Po cell (MCP73831 Linear charge controller) and one to charge your phone or other devices from the cell (PAM2401 boost converter, 5V/1A).
 
 
 ## Overview
-
 The design has two sub-circuits:
 
 | Block | IC | Function |
 |---|---|---|
 | Charge controller | Microchip **MCP73831T-2ACI/OT** | CC/CV Li-Po charger, 4.2 V cutoff, 500 mA charge current |
-| Step-up converter | Diodes/PAM **PAM2401** | Boosts 3.0-4.2 V battery to a regulated ~5 V, up to 1 A |
+| Step-up converter | PAM **PAM2401** | Boosts 3.0-4.2 V battery to a regulated ~5 V, up to 1 A |
 
 Each block has its own USB-C connector: **USB-C input** (charge) and **USB-C output** (power-bank port, with CC pull-ups and iOS-style D+/D- dividers).
 
@@ -48,18 +37,21 @@ This design uses **one cell** (PKCELL 803860, an 8 x 38 x 60 mm pouch cell), so 
 
 | Parameter | Value |
 |---|---|
-| Battery | PKCELL 803860, Li-Po, 3.7 V nominal, 2000 mAh (7.4 Wh) |
+| Battery | PKCELL 803860, Li-Po, 3.7 V nominal, 2000 mAh |
 | Charge input | 5 V via USB-C |
 | Charge current | 0.5 A (set by R2 = 2 kΩ) |
 | Charge cutoff voltage | 4.2 V |
 | Output | ~5 V, 1 A max |
-| Boost input range | 0.9-4.75 V per converter note (3.0-4.2 V expected for Li-Po) |
-| Peak efficiency | up to 95 % (datasheet claim) |
+| Boost input range | 0.9-4.75 V per converter note (3.0-4.2 V) |
 | Indicators | CHG LED (charging), PWR LED (output present) |
-| Battery switch | SW1 (PWR) in series with the battery |
 
 ## Schematics
 
+![ OCV-SOC ](Screenshots/1.png)
+CHARGE CONTROLLER
+
+![ OCV-SOC ](Screenshots/2.png)
+STEP-UP CONVERTER
 
 ### Charge controller (MCP73831)
 - U1 takes 5VIN on VIN (pin 4) and delivers VBATT (pin 3).
@@ -87,8 +79,7 @@ I_REG = 1000 V / R_PROG(kΩ) = 1000 / 2 = **500 mA** (0.25 C for a 2000 mAh cell
 |---|---|---|
 | Pre-conditioning current | 10 % of I_REG = **50 mA** | below the pre-charge threshold (~3.0 V), per datasheet |
 | Fast charge (CC) | **500 mA** | |
-| Regulation voltage | **4.2 V** | "-2" voltage option |
-| Termination current | ~7.5 % of I_REG ≈ **37.5 mA** | check the exact % for the "A" option in the datasheet |
+| Regulation voltage | **4.2 V** |
 
 Estimated charge time: 2000 mAh / 0.5 A ≈ 4 h for CC, plus ~0.5-1 h for CV → **about 4.5-5 h** from empty.
 
@@ -104,63 +95,23 @@ The MCP73831 is a linear charger, so it dissipates (V_IN − V_BATT) × I_CHG.
 | 3.7 V | 0.65 W |
 | 4.1 V | 0.45 W |
 
-The SOT-23-5 package has a junction-to-ambient resistance of roughly 200+ °C/W, so around 0.65 W the die reaches its thermal regulation limit and the charge current is reduced automatically. Give U1 as much copper as possible (see Known Issues).
+The SOT-23-5 package has a junction-to-ambient resistance of roughly 200+ °C/W, so around 0.65 W the die reaches its thermal regulation limit and the charge current is reduced automatically.
 
 ### 3. Boost output voltage (PAM2401)
-
-V_OUT = V_FB × (1 + R5 / R3) = 0.6 V × (1 + 750 k / 100 k) = 0.6 × 8.5 = **5.1 V**
-
-(Assumes V_FB = 0.6 V. Confirm against the datasheet.)
+V_OUT = V_FB × (1 + R5 / R3) = 0.6 V × (1 + 750 k / 100 k) = 0.6 × 8.5 = **5.1 V**     (V_FB = 0.6 V)
 
 ### 4. iOS D+/D- dividers (R7-R10)
-
 V_D = 5.1 V × 49.9 k / (75 k + 49.9 k) = **≈ 2.04 V** on both D+ and D−
-
 Both lines at ~2.0 V is the Apple signature for a **500 mA** charger. Divider current is only ≈ 41 µA.
 
-### 5. Runtime and battery-side current
+## BOARD 
 
-Battery energy: 3.7 V × 2.0 Ah = **7.4 Wh**
+![ OCV-SOC ](  Screenshots/3.png)
+TOP LAYER
 
-| Efficiency | Usable energy | Equivalent capacity at 5 V | Runtime at 5 V / 1 A (5 W) |
-|---|---|---|---|
-| 95 % | 7.03 Wh | ~1400 mAh | ~1.4 h |
-| 90 % | 6.66 Wh | ~1330 mAh | ~1.3 h |
-| 85 % | 6.29 Wh | ~1260 mAh | ~1.25 h |
+![ OCV-SOC ](Screenshots/4.png)
+BOTTOM LAYER
 
-Battery-side input current at full load (5.1 V × 1 A = 5.1 W) and 90 % efficiency:
+![ OCV-SOC ](Screenshots/5.png)
+3-D VIEW 
 
-| V_BATT | I_IN |
-|---|---|
-| 4.2 V | 1.35 A |
-| 3.7 V | 1.53 A |
-| 3.0 V | 1.89 A |
-
-Choose an inductor with saturation current above the PAM2401 peak switch current limit, and make sure the battery, switch SW1 and J1 are rated for ≥ 2 A.
-
-### 6. USB-C CC resistors
-
-| Port | Resistor | Role |
-|---|---|---|
-| Output (R12/R13) | 56 kΩ pull-up to +5 V | Advertises **default USB power** as a source |
-| Input | **5.1 kΩ pull-down to GND on CC1 and CC2** | Required for a sink (see Known Issues) |
-
-## Bill of Materials
-
-
-## Custom Footprints and Symbols
-
-
-
-## Known Issues and Design Notes
-
-These came up while reviewing the schematics. Fix them before sending the board for fabrication.
-
-1. **Input CC network is wrong for a charge input.** R11/R14 pull CC1_IN/CC2_IN **up** to 5VIN with 56 kΩ. An input port that receives power is a *sink* and needs **5.1 kΩ pull-downs to GND** on both CC pins, otherwise a C-to-C source will not turn on VBUS. Pull-ups belong on the output port only.
-2. **Duplicate designator R7** on the step-up sheet (4.7 kΩ LED resistor and 49.9 kΩ D- divider). Re-annotate.
-3. **Output current advertisement.** 56 kΩ advertises default USB power (500/900 mA), but the output is rated 1 A. For a 1.5 A advertisement use **22 kΩ**.
-4. **Connector part number.** The note mentions 10118193-0001LF as the cheap alternative, which appears to be a Micro-USB B receptacle rather than USB-C. Verify before using it as the USB-C alternative.
-5. **Charger thermals.** With 0.5 A from a 5 V input, U1 will thermally throttle on warm days. Add a copper pour on the VSS pin and consider lowering charge current (R2 = 3.3 kΩ → 300 mA).
-6. **D1/D2 role.** As drawn, they sit between the +5 V rail and GND. Confirm orientation and purpose against the PAM2401 application circuit.
-7. **No load sharing.** Charging and discharging at the same time is not supported by this topology. Use the PWR switch.
-8. **Battery protection.** Make sure the cell has a built-in protection circuit (PCM); there is no protection IC on this board.
